@@ -17,6 +17,7 @@ import json
 import os
 import platform
 from collections import OrderedDict
+import logging
 
 import requests
 
@@ -30,6 +31,7 @@ _AIMS_URI = "http://169.254.169.254/metadata/instance/compute"
 _AIMS_API_VERSION = "api-version=2017-12-01"
 _AIMS_FORMAT = "format=json"
 
+logger = logging.getLogger(__name__)
 
 class HeartbeatMetric:
     NAME = "Heartbeat"
@@ -100,12 +102,15 @@ class HeartbeatMetric:
         try:
             request_url = "{0}?{1}&{2}".format(
                 _AIMS_URI, _AIMS_API_VERSION, _AIMS_FORMAT)
-            response = requests.get(request_url, headers={"MetaData": "True"})
+            logger.debug(f"get_azure_compute_metadata: {request_url}")
+            response = requests.get(request_url, headers={"MetaData": "True"}, timeout=2.0)
         except requests.exceptions.ConnectionError:
+            logger.error("ConnectionError in get_azure_compute_metadata", exc_info=True)
             # Not in VM
             self.is_vm = False
             return False
         except requests.exceptions.RequestException:
+            logger.error("RequestException in get_azure_compute_metadata", exc_info=True)
             pass  # retry
 
         self.is_vm = True
@@ -113,6 +118,8 @@ class HeartbeatMetric:
             text = response.text
             self.vm_data = json.loads(text)
         except Exception:  # pylint: disable=broad-except
+            logger.error("Exception reading response body in get_azure_compute_metadata", exc_info=True)
+            
             # Error in reading response body, retry
             pass
 
