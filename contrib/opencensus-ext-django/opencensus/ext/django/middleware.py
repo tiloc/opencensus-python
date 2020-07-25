@@ -108,6 +108,7 @@ def _set_django_attributes(span, request):
 
 def _trace_db_call(execute, sql, params, many, context):
     # _trace_db_call doesn't have access to self. Fetching settings again...
+    # TODO: Use execution_context???
     settings = getattr(django.conf.settings, 'OPENCENSUS', {})
     settings = settings.get('TRACE', {})
     explain_mode = settings.get('EXPLAIN', None)
