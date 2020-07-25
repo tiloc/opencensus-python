@@ -19,7 +19,7 @@ import logging
 
 import django
 import django.conf
-from django.db import connection
+from django.db import connection, connections
 from django.utils.deprecation import MiddlewareMixin
 from google.rpc import code_pb2
 
@@ -49,7 +49,7 @@ SPAN_THREAD_LOCAL_KEY = 'django_span'
 BLACKLIST_PATHS = 'BLACKLIST_PATHS'
 BLACKLIST_HOSTNAMES = 'BLACKLIST_HOSTNAMES'
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class _DjangoMetaWrapper(object):
@@ -107,6 +107,17 @@ def _set_django_attributes(span, request):
 
 
 def _trace_db_call(execute, sql, params, many, context):
+    # _trace_db_call doesn't have access to self. Fetching settings again...
+    settings = getattr(django.conf.settings, 'OPENCENSUS', {})
+    settings = settings.get('TRACE', {})
+    explain_mode = settings.get('EXPLAIN', None)
+
+    if "EXPLAIN" in sql:
+        logger.debug("_trace_db_call: Processing EXPLAIN statement")
+        return execute(sql, params, many, context)
+    
+    logger.debug(f"_trace_db_call: {sql}")
+
     tracer = _get_current_tracer()
     if not tracer:
         return execute(sql, params, many, context)
@@ -122,6 +133,23 @@ def _trace_db_call(execute, sql, params, many, context):
     tracer.add_attribute_to_current_span('db.instance', alias)
     tracer.add_attribute_to_current_span('db.statement', sql)
     tracer.add_attribute_to_current_span('db.type', 'sql')
+
+    # EXPLAIN ANALYZE only works under certain circumstances
+    if explain_mode is not None and vendor is "postgresql" and "SELECT" in sql:
+        try:
+            with connections[alias].cursor() as cursor:
+                if "analyze" is explain_mode:
+                    cursor.execute("EXPLAIN ANALYZE {0}".format(sql), params)
+                else:
+                    cursor.execute("EXPLAIN {0}".format(sql), params)
+                planresult = cursor.fetchall()
+
+            logger.debug("EXPLAIN plan: {0}".format(planresult))
+            tracer.add_attribute_to_current_span('db.plan', "{0}".format(planresult))
+        except Exception: # pragma: NO COVER
+            logger.warning("Could not retrieve EXPLAIN plan", exc_info=True)
+            tracer.add_attribute_to_current_span('db.plan', 'not available')
+            pass        
 
     try:
         result = execute(sql, params, many, context)
@@ -164,8 +192,13 @@ class OpencensusMiddleware(MiddlewareMixin):
 
         self.blacklist_hostnames = settings.get(BLACKLIST_HOSTNAMES, None)
 
+        logger.debug(f"OpenCensus Exporter: {self.exporter}")
+
+    def __call__(self, request):
         if django.VERSION >= (2,):  # pragma: NO COVER
-            connection.execute_wrappers.append(_trace_db_call)
+            with connection.execute_wrapper(_trace_db_call):
+                return super(OpencensusMiddleware, self).__call__(request)
+        return super(OpencensusMiddleware, self).__call__(request)
 
     def process_request(self, request):
         """Called on each request, before Django decides which view to execute.
@@ -227,7 +260,7 @@ class OpencensusMiddleware(MiddlewareMixin):
                 span)
 
         except Exception:  # pragma: NO COVER
-            log.error('Failed to trace request', exc_info=True)
+            logger.warning('Failed to trace request', exc_info=True)
 
     def process_view(self, request, view_func, *args, **kwargs):
         """Process view is executed before the view function, here we get the
@@ -245,7 +278,7 @@ class OpencensusMiddleware(MiddlewareMixin):
             span = tracer.current_span()
             span.name = utils.get_func_name(view_func)
         except Exception:  # pragma: NO COVER
-            log.error('Failed to trace request', exc_info=True)
+            logger.warning('Failed to trace request', exc_info=True)
 
     def process_response(self, request, response):
         # Do not trace if the url is blacklisted
@@ -264,6 +297,6 @@ class OpencensusMiddleware(MiddlewareMixin):
             tracer.end_span()
             tracer.finish()
         except Exception:  # pragma: NO COVER
-            log.error('Failed to trace request', exc_info=True)
+            logger.warning('Failed to trace request', exc_info=True)
         finally:
             return response
