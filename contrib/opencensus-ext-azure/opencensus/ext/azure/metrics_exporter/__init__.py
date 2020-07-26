@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Prominent notice according to section 4b of the license: Tilo Christ modified this file.
+
 import atexit
 import logging
 
@@ -153,9 +155,10 @@ def new_metrics_exporter(**options):
     transport.get_exporter_thread(producers,
                                   exporter,
                                   interval=exporter.options.export_interval)
-    from opencensus.ext.azure.metrics_exporter import heartbeat_metrics
-    heartbeat_metrics.enable_heartbeat_metrics(
-        exporter.options.connection_string,
-        exporter.options.instrumentation_key
-    )
+# TODO: Forcing the enablement of heartbeat metrics sounds like a very bad idea
+#   from opencensus.ext.azure.metrics_exporter import heartbeat_metrics
+#   heartbeat_metrics.enable_heartbeat_metrics(
+#       exporter.options.connection_string,
+#       exporter.options.instrumentation_key
+#   )
     return exporter
