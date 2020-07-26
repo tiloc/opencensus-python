@@ -6,22 +6,30 @@ import time
 
 import logging
 
+from google.rpc import code_pb2
+
 from django.core.cache.backends.base import (
     DEFAULT_TIMEOUT, BaseCache, InvalidCacheKey, memcache_key_warnings,
 )
 from django.utils.functional import cached_property
 
 from opencensus.trace import (
-    attributes_helper,
     execution_context,
 )
 
+from opencensus.trace import status as status_module
 from opencensus.trace import span as span_module
 
 logger = logging.getLogger(__name__)
 
 
+# TODO: Currently this safely traces nothing when the Middleware is not configured. Should it rather still trace or log outside the context of a request?
+
+
 class CacheTracer:
+    def __init__(self, servers):
+        self._servers = servers
+
     @property
     def _get_current_tracer(self):
         """Get the current request tracer."""
@@ -54,6 +62,12 @@ class CacheTracer:
         tracer.add_attribute_to_current_span('cache.op', operation)
         tracer.add_attribute_to_current_span('cache.key', key)
 
+    def setstatus(self, status):
+        tracer = self._get_current_tracer
+        if not tracer:
+            return
+
+        tracer.current_span().set_status(status_module.Status(status))
 
 
 class BaseMemcachedCache(BaseCache):
@@ -117,20 +131,28 @@ class BaseMemcachedCache(BaseCache):
         return self._cache.add(key, value, self.get_backend_timeout(timeout))
 
     def get(self, key, default=None, version=None):
-        with CacheTracer() as ct:
+        with CacheTracer(self._servers) as ct:
             key = self.make_key(key, version=version)
             self.validate_key(key)
             ct.trace_op('get', key)
-            return self._cache.get(key, default)
+            retval = self._cache.get(key, default)
+            if retval is None:
+                ct.setstatus(code_pb2.NOT_FOUND)
+            else:
+                ct.setstatus(code_pb2.OK)
+            return retval
 
     def set(self, key, value, timeout=DEFAULT_TIMEOUT, version=None):
-        with CacheTracer() as ct:
+        with CacheTracer(self._servers) as ct:
             key = self.make_key(key, version=version)
             self.validate_key(key)
             ct.trace_op('set', key)
             if not self._cache.set(key, value, self.get_backend_timeout(timeout)):
+                ct.setstatus(code_pb2.RESOURCE_EXHAUSTED)
                 # make sure the key doesn't keep its old value in case of failure to set (memcached's 1MB limit)
                 self._cache.delete(key)
+            else:
+                ct.setstatus(code_pb2.OK)
 
     def delete(self, key, version=None):
         key = self.make_key(key, version=version)

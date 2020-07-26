@@ -107,11 +107,7 @@ def _set_django_attributes(span, request):
 
 
 def _trace_db_call(execute, sql, params, many, context):
-    # _trace_db_call doesn't have access to self. Fetching settings again...
-    # TODO: Use execution_context???
-    settings = getattr(django.conf.settings, 'OPENCENSUS', {})
-    settings = settings.get('TRACE', {})
-    explain_mode = settings.get('EXPLAIN', None)
+    explain_mode = execution_context.get_opencensus_attr('explain_mode')
 
     if "EXPLAIN" in sql:
         logger.debug("_trace_db_call: Processing EXPLAIN statement")
@@ -135,11 +131,12 @@ def _trace_db_call(execute, sql, params, many, context):
     tracer.add_attribute_to_current_span('db.statement', sql)
     tracer.add_attribute_to_current_span('db.type', 'sql')
 
-    # EXPLAIN ANALYZE only works under certain circumstances
-    if explain_mode is not None and vendor is "postgresql" and "SELECT" in sql:
+    # EXPLAIN is expensive and needs to be explicitly enabled
+    if explain_mode is not None:
         try:
             with connections[alias].cursor() as cursor:
-                if "analyze" is explain_mode:
+                # EXPLAIN ANALYZE only works under certain circumstances
+                if "analyze" is explain_mode and "postgresql" is vendor and sql.beginswith("SELECT"):
                     cursor.execute("EXPLAIN ANALYZE {0}".format(sql), params)
                 else:
                     cursor.execute("EXPLAIN {0}".format(sql), params)
@@ -154,10 +151,8 @@ def _trace_db_call(execute, sql, params, many, context):
 
     try:
         result = execute(sql, params, many, context)
-    except Exception:  # pragma: NO COVER
-        status = status_module.Status(
-            code=code_pb2.UNKNOWN, message='DB error'
-        )
+    except Exception as exc:  # pragma: NO COVER
+        status = status_module.Status.from_exception(exc)
         span.set_status(status)
         raise
     else:
@@ -192,6 +187,8 @@ class OpencensusMiddleware(MiddlewareMixin):
         self.blacklist_paths = settings.get(BLACKLIST_PATHS, None)
 
         self.blacklist_hostnames = settings.get(BLACKLIST_HOSTNAMES, None)
+    
+        self.explain_mode = settings.get('EXPLAIN', None)
 
         logger.debug(f"OpenCensus Exporter: {self.exporter}")
 
@@ -219,6 +216,11 @@ class OpencensusMiddleware(MiddlewareMixin):
         execution_context.set_opencensus_attr(
             'blacklist_hostnames',
             self.blacklist_hostnames)
+
+        execution_context.set_opencensus_attr(
+            'explain_mode',
+            self.explain_mode
+        )
 
         try:
             # Start tracing this request
