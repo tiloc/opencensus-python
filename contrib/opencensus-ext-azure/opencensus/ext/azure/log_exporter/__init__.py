@@ -60,6 +60,8 @@ class BaseLogHandler(logging.Handler):
         self._queue = Queue(capacity=8192)  # TODO: make this configurable
         self._worker = Worker(self._queue, self)
         self._worker.start()
+
+        # TODO: Make enable/disable heartbeat configurable
         heartbeat_metrics.enable_heartbeat_metrics(
             self.options.connection_string, self.options.instrumentation_key)
 

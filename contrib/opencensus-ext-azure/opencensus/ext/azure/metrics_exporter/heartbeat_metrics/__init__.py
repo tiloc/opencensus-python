@@ -33,7 +33,7 @@ def enable_heartbeat_metrics(connection_string, ikey):
             exporter = MetricsExporter(
                 connection_string=connection_string,
                 instrumentation_key=ikey,
-                export_interval=900.0,  # Send every 15 minutes
+                export_interval=900.0,  # How often to send in seconds? TODO: Make configurable
             )
             producer = AzureHeartbeatMetricsProducer()
             _HEARTBEAT_METRICS = producer

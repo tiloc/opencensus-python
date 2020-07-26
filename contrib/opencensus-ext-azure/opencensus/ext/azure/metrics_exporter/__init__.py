@@ -41,6 +41,7 @@ class MetricsExporter(TransportMixin, ProcessorMixin):
 
     def __init__(self, **options):
         self.options = Options(**options)
+        logger.info("Azure MetricsExporter with options: {0}".format(self.options))
         utils.validate_instrumentation_key(self.options.instrumentation_key)
         if self.options.max_batch_size <= 0:
             raise ValueError('Max batch size must be at least 1.')
@@ -147,6 +148,7 @@ def new_metrics_exporter(**options):
     exporter = MetricsExporter(**options)
     producers = [stats_module.stats]
     if exporter.options.enable_standard_metrics:
+        logger.info("Enabling standard metrics (CPU, etc.)")
         producers.append(standard_metrics.producer)
     transport.get_exporter_thread(producers,
                                   exporter,
