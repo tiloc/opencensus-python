@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Prominent notice according to section 4b of the license: Tilo Christ modified this file.
+
 import logging
 import random
 import threading
@@ -43,6 +45,8 @@ class BaseLogHandler(logging.Handler):
     def __init__(self, **options):
         super(BaseLogHandler, self).__init__()
         self.options = Options(**options)
+        # TODO: Remove secrets from log
+        logger.info("Setting up AzureLogHandler with options: {}".format(self.options))
         utils.validate_instrumentation_key(self.options.instrumentation_key)
         if not 0 <= self.options.logging_sampling_rate <= 1:
             raise ValueError('Sampling must be in the range: [0,1]')
@@ -60,8 +64,10 @@ class BaseLogHandler(logging.Handler):
         self._queue = Queue(capacity=8192)  # TODO: make this configurable
         self._worker = Worker(self._queue, self)
         self._worker.start()
-        heartbeat_metrics.enable_heartbeat_metrics(
-            self.options.connection_string, self.options.instrumentation_key)
+
+        # TODO: Make enable/disable heartbeat configurable. Disabling it for now.
+        # heartbeat_metrics.enable_heartbeat_metrics(
+        #    self.options.connection_string, self.options.instrumentation_key)
 
     def _export(self, batch, event=None):  # pragma: NO COVER
         try:
@@ -110,6 +116,7 @@ class Worker(threading.Thread):
         )
 
     def run(self):
+        logger.info("AzureLogHandler: Running worker...")
         # Indicate that this thread is an exporter thread.
         # Used to suppress tracking of requests in this thread
         execution_context.set_is_exporter(True)

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Prominent notice according to section 4b of the license: Tilo Christ modified this file.
+
 import logging
 
 from opencensus.common.schedule import QueueExitEvent
@@ -57,8 +59,9 @@ class AzureExporter(BaseExporter, ProcessorMixin, TransportMixin):
         )
         self._telemetry_processors = []
         super(AzureExporter, self).__init__(**options)
-        heartbeat_metrics.enable_heartbeat_metrics(
-            self.options.connection_string, self.options.instrumentation_key)
+# TODO: Removed heartbeat metrics for now. Make configurable?
+#        heartbeat_metrics.enable_heartbeat_metrics(
+#            self.options.connection_string, self.options.instrumentation_key)
 
     def span_data_to_envelope(self, sd):
         envelope = Envelope(

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Prominent notice according to section 4b of the license: Tilo Christ modified this file.
+
 import atexit
 import logging
 
@@ -41,6 +43,7 @@ class MetricsExporter(TransportMixin, ProcessorMixin):
 
     def __init__(self, **options):
         self.options = Options(**options)
+        logger.info("Azure MetricsExporter with options: {0}".format(self.options))
         utils.validate_instrumentation_key(self.options.instrumentation_key)
         if self.options.max_batch_size <= 0:
             raise ValueError('Max batch size must be at least 1.')
@@ -147,13 +150,15 @@ def new_metrics_exporter(**options):
     exporter = MetricsExporter(**options)
     producers = [stats_module.stats]
     if exporter.options.enable_standard_metrics:
+        logger.info("Enabling standard metrics (CPU, etc.)")
         producers.append(standard_metrics.producer)
     transport.get_exporter_thread(producers,
                                   exporter,
                                   interval=exporter.options.export_interval)
-    from opencensus.ext.azure.metrics_exporter import heartbeat_metrics
-    heartbeat_metrics.enable_heartbeat_metrics(
-        exporter.options.connection_string,
-        exporter.options.instrumentation_key
-    )
+# TODO: Forcing the enablement of heartbeat metrics sounds like a very bad idea
+#   from opencensus.ext.azure.metrics_exporter import heartbeat_metrics
+#   heartbeat_metrics.enable_heartbeat_metrics(
+#       exporter.options.connection_string,
+#       exporter.options.instrumentation_key
+#   )
     return exporter
