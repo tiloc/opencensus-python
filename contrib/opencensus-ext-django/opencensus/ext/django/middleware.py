@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Prominent notice according to section 4b of the license: Tilo Christ modified this file.
+
+
 """Django middleware helper to capture and trace a request."""
 import six
 
@@ -92,18 +95,22 @@ def _set_django_attributes(span, request):
     """Set the django related attributes."""
     django_user = getattr(request, 'user', None)
 
-    if django_user is None:
-        return
+    if django_user is not None:
+        user_id = django_user.pk
+        user_name = django_user.get_username()
 
-    user_id = django_user.pk
-    user_name = django_user.get_username()
+        # User id is the django autofield for User model as the primary key
+        if user_id is not None:
+            span.add_attribute('django.user.id', str(user_id))
+# TODO: This still ends up as a custom dimension, rather than the Azure standard attribute
+#            span.add_attribute('user_Id', str(user_id))
 
-    # User id is the django autofield for User model as the primary key
-    if user_id is not None:
-        span.add_attribute('django.user.id', str(user_id))
+        if user_name is not None:
+            span.add_attribute('django.user.name', str(user_name))
 
-    if user_name is not None:
-        span.add_attribute('django.user.name', str(user_name))
+    if request.session is not None and request.session.session_key is not None:
+        # TODO: This still ends up as a custom dimension, rather than the Azure standard attribute
+        span.add_attribute('session_Id', request.session.session_key)
 
 
 def _trace_db_call(execute, sql, params, many, context):
