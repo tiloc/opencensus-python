@@ -1,5 +1,7 @@
 "OpenCensus instrumented Memcached cache backend"
 
+# Prominent notice according to section 4b of the license: Tilo Christ modified this file.
+
 import pickle
 import re
 import time
@@ -43,6 +45,7 @@ class CacheTracer:
         span = tracer.start_span()
         span.name = 'memcached.op'
         span.span_kind = span_module.SpanKind.CLIENT
+        span.set_status(status_module.Status(code_pb2.UNKNOWN))
 
         tracer.add_attribute_to_current_span('component', 'memcached')
         return self
@@ -249,15 +252,18 @@ class MemcachedCache(BaseMemcachedCache):
         return self._cache.touch(key, self.get_backend_timeout(timeout)) != 0
 
     def get(self, key, default=None, version=None):
-
-        key = self.make_key(key, version=version)
-        val = self._cache.get(key)
-        # python-memcached doesn't support default values in get().
-        # https://github.com/linsomniac/python-memcached/issues/159
-        # Remove this method if that issue is fixed.
-        if val is None:
-            return default
-        return val
+        with CacheTracer(self._servers) as ct:
+            key = self.make_key(key, version=version)
+            val = self._cache.get(key)
+            ct.trace_op('get', key)
+            # python-memcached doesn't support default values in get().
+            # https://github.com/linsomniac/python-memcached/issues/159
+            # Remove this method if that issue is fixed.
+            if val is None:
+                ct.setstatus(code_pb2.NOT_FOUND)
+                return default
+            ct.setstatus(code_pb2.OK)
+            return val
 
     def delete(self, key, version=None):
         # python-memcached's delete() returns True when key doesn't exist.
