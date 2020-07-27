@@ -38,7 +38,7 @@ setup(
     ],
     description='A stats collection and distributed tracing framework',
     include_package_data=True,
-    long_description=open('README.rst').read(),
+    long_description=open('README.md').read(),
     install_requires=[
         'opencensus-context == 0.2.dev0',
         'google-api-core >= 1.0.0, < 2.0.0',
