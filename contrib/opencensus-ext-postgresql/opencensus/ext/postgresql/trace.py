@@ -55,12 +55,15 @@ def trace_cursor_query(query_func):
             # protect against setting None to the thread local - be defensive
             # here
             _span = _tracer.start_span()
-            _span.name = '{}.query'.format(MODULE_NAME)
+            (sql_command, rest) = query.split(maxsplit=1)
+            _span.name = '{}.{}'.format(MODULE_NAME, sql_command)
             _span.span_kind = span_module.SpanKind.CLIENT
+            _tracer.add_attribute_to_current_span("component", MODULE_NAME)
+            _tracer.add_attribute_to_current_span("db.type", "sql")
             _tracer.add_attribute_to_current_span(
-                '{}.query'.format(MODULE_NAME), query)
+                'db.statement', query)
             _tracer.add_attribute_to_current_span(
-                '{}.cursor.method.name'.format(MODULE_NAME),
+                'db.cursor.method.name',
                 query_func.__name__)
 
         result = query_func(query, *args, **kwargs)
