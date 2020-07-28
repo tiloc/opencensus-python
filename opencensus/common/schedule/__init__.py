@@ -48,9 +48,9 @@ class PeriodicTask(threading.Thread):
     def run(self):
         wait_time = self.interval
         while not self.finished.wait(wait_time):
-            start_time = time.time()
+            start_time = time.monotonic()
             self.function(*self.args, **self.kwargs)
-            elapsed_time = time.time() - start_time
+            elapsed_time = time.monotonic() - start_time
             wait_time = max(self.interval - elapsed_time, 0)
 
     def cancel(self):
@@ -82,7 +82,7 @@ class Queue(object):
         self._queue = queue.Queue(maxsize=capacity)
 
     def _gets(self, count, timeout):
-        start_time = time.time()
+        start_time = time.monotonic()
         elapsed_time = 0
         cnt = 0
         while cnt < count:
@@ -104,7 +104,7 @@ class Queue(object):
             except queue.Empty:
                 break
             cnt += 1
-            elapsed_time = time.time() - start_time
+            elapsed_time = time.monotonic() - start_time
 
     def gets(self, count, timeout):
         return tuple(self._gets(count, timeout))
@@ -112,17 +112,17 @@ class Queue(object):
     def flush(self, timeout=None):
         if self._queue.qsize() == 0:
             return 0
-        start_time = time.time()
+        start_time = time.monotonic()
         wait_time = timeout
         event = QueueEvent('SYNC(timeout={})'.format(wait_time))
         try:
             self._queue.put(event, block=True, timeout=wait_time)
         except queue.Full:
             return
-        elapsed_time = time.time() - start_time
+        elapsed_time = time.monotonic() - start_time
         wait_time = timeout and max(timeout - elapsed_time, 0)
         if event.wait(timeout):
-            return time.time() - start_time  # time taken to flush
+            return time.monotonic() - start_time  # time taken to flush
 
     def put(self, item, block=True, timeout=None):
         try:
@@ -132,12 +132,12 @@ class Queue(object):
 
     def puts(self, items, block=True, timeout=None):
         if block and timeout is not None:
-            start_time = time.time()
+            start_time = time.monotonic()
             elapsed_time = 0
             for item in items:
                 wait_time = max(timeout - elapsed_time, 0)
                 self.put(item, block=True, timeout=wait_time)
-                elapsed_time = time.time() - start_time
+                elapsed_time = time.monotonic() - start_time
         else:
             for item in items:
                 self.put(item, block, timeout)

@@ -252,7 +252,7 @@ class TestDistributionAggregationData(unittest.TestCase):
                 exemplars=[mock.Mock(), mock.Mock()])
 
     def test_constructor_with_exemplar(self):
-        timestamp = time.time()
+        timestamp = time.monotonic()
         attachments = {"One": "one", "Two": "two"}
         exemplars = [
             aggregation_data_module.Exemplar(.07, timestamp, attachments),
@@ -284,7 +284,7 @@ class TestDistributionAggregationData(unittest.TestCase):
             self.assertEqual(dist_agg_data.exemplars[ii], ex)
 
     def test_exemplar(self):
-        timestamp = time.time()
+        timestamp = time.monotonic()
         attachments = {"One": "one", "Two": "two"}
         exemplar = aggregation_data_module.Exemplar(4, timestamp, attachments)
 
@@ -293,14 +293,14 @@ class TestDistributionAggregationData(unittest.TestCase):
         self.assertEqual(attachments, exemplar.attachments)
 
     def test_exemplar_null_attachments(self):
-        timestamp = time.time()
+        timestamp = time.monotonic()
 
         with self.assertRaisesRegexp(TypeError,
                                      'attachments should not be empty'):
             aggregation_data_module.Exemplar(6, timestamp, None)
 
     def test_exemplar_null_attachment_key(self):
-        timestamp = time.time()
+        timestamp = time.monotonic()
         attachment = {None: "one", "Two": "two"}
 
         with self.assertRaisesRegexp(
@@ -309,7 +309,7 @@ class TestDistributionAggregationData(unittest.TestCase):
             aggregation_data_module.Exemplar(6, timestamp, attachment)
 
     def test_exemplar_null_attachment_value(self):
-        timestamp = time.time()
+        timestamp = time.monotonic()
         attachment = {"One": "one", "Two": None}
 
         with self.assertRaisesRegexp(
@@ -318,7 +318,7 @@ class TestDistributionAggregationData(unittest.TestCase):
             aggregation_data_module.Exemplar(6, timestamp, attachment)
 
     def test_exemplar_int_attachment_key(self):
-        timestamp = time.time()
+        timestamp = time.monotonic()
         attachment = {1: "one", "Two": "two"}
 
         with self.assertRaisesRegexp(
@@ -327,7 +327,7 @@ class TestDistributionAggregationData(unittest.TestCase):
             aggregation_data_module.Exemplar(6, timestamp, attachment)
 
     def test_exemplar_int_attachment_value(self):
-        timestamp = time.time()
+        timestamp = time.monotonic()
         attachment = {"One": "one", "Two": 2}
 
         with self.assertRaisesRegexp(
@@ -401,7 +401,7 @@ class TestDistributionAggregationData(unittest.TestCase):
         bounds = [0.5, 1, 1.5]
 
         value = 3
-        timestamp = time.time()
+        timestamp = time.monotonic()
         attachments = {"One": "one", "Two": "two"}
         exemplar_1 = aggregation_data_module.Exemplar(4, timestamp,
                                                       attachments)
