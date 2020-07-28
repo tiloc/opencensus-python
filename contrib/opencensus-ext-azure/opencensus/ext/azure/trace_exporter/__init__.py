@@ -154,7 +154,10 @@ class AzureExporter(BaseExporter, ProcessorMixin, TransportMixin):
             # This removes redundant data from ApplicationInsights
             if key.startswith('http.'):
                 continue
-            data.properties[key] = sd.attributes[key]
+            elif key.startswith('ai.'):
+                envelope.tags[key] = sd.attributes[key]
+            else:    
+                data.properties[key] = sd.attributes[key]
         return envelope
 
     def emit(self, batch, event=None):

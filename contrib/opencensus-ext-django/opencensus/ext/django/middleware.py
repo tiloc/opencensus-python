@@ -101,16 +101,13 @@ def _set_django_attributes(span, request):
 
         # User id is the django autofield for User model as the primary key
         if user_id is not None:
-            span.add_attribute('django.user.id', str(user_id))
-# TODO: This still ends up as a custom dimension, rather than the Azure standard attribute
-#            span.add_attribute('user_Id', str(user_id))
+            span.add_attribute('ai.user.id', str(user_id))
 
         if user_name is not None:
-            span.add_attribute('django.user.name', str(user_name))
+            span.add_attribute('ai.user.authUserId', str(user_name))
 
     if request.session is not None and request.session.session_key is not None:
-        # TODO: This still ends up as a custom dimension, rather than the Azure standard attribute
-        span.add_attribute('session_Id', request.session.session_key)
+        span.add_attribute('ai.session.id', request.session.session_key)
 
 
 def _trace_db_call(execute, sql, params, many, context):
@@ -130,7 +127,7 @@ def _trace_db_call(execute, sql, params, many, context):
     alias = context['connection'].alias
 
     span = tracer.start_span()
-    (sql_command, rest) = sql.split(maxsplit=1)
+    (sql_command, *_) = sql.split(maxsplit=1)
     span.name = '{}.{}'.format(vendor, sql_command)
     span.span_kind = span_module.SpanKind.CLIENT
 
