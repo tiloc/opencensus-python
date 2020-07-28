@@ -10,7 +10,7 @@ import logging
 if __name__ == '__main__':
     try:
         from opencensus.common import configuration
-        from opencensus.trace import config_integration
+        from opencensus.trace import config_integration, span as span_module
         from opencensus.trace.tracer import Tracer
         from opencensus.trace.samplers import ProbabilitySampler
         from opencensus.ext.azure.log_exporter import AzureLogHandler
@@ -62,12 +62,16 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
 
     # TODO: Remove hard-coded Azure Log Handler
-    handler = AzureLogHandler()
-    handler.setFormatter(logging.Formatter('%(traceId)s %(spanId)s %(message)s'))
+#    handler = AzureLogHandler()
+#    handler.setFormatter(logging.Formatter('%(traceId)s %(spanId)s %(message)s'))
 # TODO: Activating the handler currently causes indefinite hang
 #    logger.addHandler(handler)
 #    logger.warning("Test")
 
     # Run with tracing
-    with tracer.span(name='manage.py/{0}'.format(sys.argv[1])):
+    with tracer.span(name='manage.py/{0}'.format(sys.argv[1])) as span:
+        # TODO: Figure out why AI is still not listing this as an operation
+        span.span_kind = span_module.SpanKind.CLIENT
+        tracer.add_attribute_to_current_span("http.method", "CLI")
+        tracer.add_attribute_to_current_span("http.route", 'manage.py/{0}'.format(sys.argv[1]))
         execute_from_command_line(sys.argv)
