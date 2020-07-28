@@ -55,7 +55,7 @@ def trace_cursor_query(query_func):
             # protect against setting None to the thread local - be defensive
             # here
             _span = _tracer.start_span()
-            (sql_command, rest) = query.split(maxsplit=1)
+            (sql_command, *_) = query.split(maxsplit=1)
             _span.name = '{}.{}'.format(MODULE_NAME, sql_command)
             _span.span_kind = span_module.SpanKind.CLIENT
             _tracer.add_attribute_to_current_span("component", MODULE_NAME)

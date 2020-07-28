@@ -126,7 +126,7 @@ class BaseMemcachedCache(BaseCache):
             # next year, this is how you do that."
             #
             # This means that we have to switch to absolute timestamps.
-            timeout += int(time.time())
+            timeout += int(time.monotonic())
         return int(timeout)
 
     def add(self, key, value, timeout=DEFAULT_TIMEOUT, version=None):

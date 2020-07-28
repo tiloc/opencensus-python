@@ -30,9 +30,9 @@ ORIGINAL_CONSTRUCTOR = HTTPServer.__init__
 
 def request_patch(func):
     def wrapper(self=None):
-        start_time = time.time()
+        start_time = time.monotonic()
         func(self)
-        end_time = time.time()
+        end_time = time.monotonic()
 
         update_request_state(start_time, end_time)
 
@@ -96,7 +96,7 @@ def get_average_execution_time():
 
 
 def get_requests_rate():
-    current_time = time.time()
+    current_time = time.monotonic()
     last_rate = requests_map.get('last_rate', 0)
     last_time = requests_map.get('last_time')
 

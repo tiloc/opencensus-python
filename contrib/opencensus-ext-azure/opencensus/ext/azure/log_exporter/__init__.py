@@ -138,15 +138,15 @@ class Worker(threading.Thread):
                 logger.exception('Unhandled exception from exporter.')
 
     def stop(self, timeout=None):  # pragma: NO COVER
-        start_time = time.time()
+        start_time = time.monotonic()
         wait_time = timeout
         if self.is_alive() and not self._stopping:
             self._stopping = True
             self._src.put(self._src.EXIT_EVENT, block=True, timeout=wait_time)
-            elapsed_time = time.time() - start_time
+            elapsed_time = time.monotonic() - start_time
             wait_time = timeout and max(timeout - elapsed_time, 0)
         if self._src.EXIT_EVENT.wait(timeout=wait_time):
-            return time.time() - start_time  # time taken to stop
+            return time.monotonic() - start_time  # time taken to stop
 
 
 class SamplingFilter(logging.Filter):
