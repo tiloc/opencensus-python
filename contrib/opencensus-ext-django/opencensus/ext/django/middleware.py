@@ -130,7 +130,8 @@ def _trace_db_call(execute, sql, params, many, context):
     alias = context['connection'].alias
 
     span = tracer.start_span()
-    span.name = '{}.query'.format(vendor)
+    (sql_command, rest) = sql.split(maxsplit=1)
+    span.name = '{}.{}'.format(vendor, sql_command)
     span.span_kind = span_module.SpanKind.CLIENT
 
     tracer.add_attribute_to_current_span('component', vendor)
@@ -143,7 +144,7 @@ def _trace_db_call(execute, sql, params, many, context):
         try:
             with connections[alias].cursor() as cursor:
                 # EXPLAIN ANALYZE only works under certain circumstances
-                if "analyze" is explain_mode and "postgresql" is vendor and sql.beginswith("SELECT"):
+                if "analyze" is explain_mode and "postgresql" is vendor and "SELECT" is sql_command:
                     cursor.execute("EXPLAIN ANALYZE {0}".format(sql), params)
                 else:
                     cursor.execute("EXPLAIN {0}".format(sql), params)

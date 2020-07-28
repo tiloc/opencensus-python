@@ -61,6 +61,7 @@ class CacheTracer:
         tracer = self._get_current_tracer
         if not tracer:
             return
+        tracer.current_span().name = 'memcached.{}'.format(operation)
 
         tracer.add_attribute_to_current_span('cache.op', operation)
         tracer.add_attribute_to_current_span('cache.key', key)
