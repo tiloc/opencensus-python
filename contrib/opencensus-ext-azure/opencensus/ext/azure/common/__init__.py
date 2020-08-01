@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import re
 import tempfile
 
 from opencensus.ext.azure.common.protocol import BaseObject
@@ -39,6 +40,9 @@ def process_options(options):
         or code_ikey \
         or env_cs.get(INSTRUMENTATION_KEY) \
         or env_ikey
+
+    validate_instrumentation_key(options.instrumentation_key)
+
     # The priority of the ingestion endpoint is as follows:
     # 1. The endpoint explicitly passed in connection string
     # 2. The endpoint from the connection string in environment variable
@@ -58,6 +62,30 @@ def process_options(options):
 
     if options.proxies is None:
         options.proxies = '{}'
+
+
+# Validate UUID format
+# Specs taken from https://tools.ietf.org/html/rfc4122
+uuid_regex_pattern = re.compile('^[0-9a-f]{8}-'
+                                '[0-9a-f]{4}-'
+                                '[1-5][0-9a-f]{3}-'
+                                '[89ab][0-9a-f]{3}-'
+                                '[0-9a-f]{12}$')
+
+
+def validate_instrumentation_key(instrumentation_key):
+    """Validates the instrumentation key used for Azure Monitor.
+
+    An instrumentation key cannot be null or empty. An instrumentation key
+    is valid for Azure Monitor only if it is a valid UUID.
+
+    :param instrumentation_key: The instrumentation key to validate
+    """
+    if not instrumentation_key:
+        raise ValueError("Instrumentation key cannot be none or empty.")
+    match = uuid_regex_pattern.match(instrumentation_key)
+    if not match:
+        raise ValueError("Invalid instrumentation key.")
 
 
 def parse_connection_string(connection_string):

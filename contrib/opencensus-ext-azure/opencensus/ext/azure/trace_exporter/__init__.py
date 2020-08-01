@@ -49,7 +49,6 @@ class AzureExporter(BaseExporter, ProcessorMixin, TransportMixin):
 
     def __init__(self, **options):
         self.options = Options(**options)
-        utils.validate_instrumentation_key(self.options.instrumentation_key)
         self.storage = LocalFileStorage(
             path=self.options.storage_path,
             max_size=self.options.storage_max_size,
@@ -66,7 +65,7 @@ class AzureExporter(BaseExporter, ProcessorMixin, TransportMixin):
     def span_data_to_envelope(self, sd):
         envelope = Envelope(
             iKey=self.options.instrumentation_key,
-            tags=dict(utils.azure_monitor_context),
+            tags=dict(utils.AZURE_MONITOR_CONTEXT),
             time=sd.start_time,
         )
 
@@ -154,9 +153,9 @@ class AzureExporter(BaseExporter, ProcessorMixin, TransportMixin):
             # This removes redundant data from ApplicationInsights
             if key.startswith('http.'):
                 continue
-            elif key.startswith('ai.'):
+            elif key.startswith('ai.'):  # Pass-through for proprietary extra attributes, such as user ID or session ID
                 envelope.tags[key] = sd.attributes[key]
-            else:    
+            else:
                 data.properties[key] = sd.attributes[key]
         return envelope
 

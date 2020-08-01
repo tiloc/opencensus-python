@@ -97,14 +97,14 @@ def _set_django_attributes(span, request):
 
     if django_user is not None:
         user_id = django_user.pk
-        user_name = django_user.get_username()
 
         # User id is the django autofield for User model as the primary key
         if user_id is not None:
             span.add_attribute('ai.user.id', str(user_id))
-
-        if user_name is not None:
-            span.add_attribute('ai.user.authUserId', str(user_name))
+    
+            user_name = django_user.get_username()
+            if user_name is not None:
+                span.add_attribute('ai.user.authUserId', str(user_name))
 
     if request.session is not None and request.session.session_key is not None:
         span.add_attribute('ai.session.id', request.session.session_key)
@@ -127,8 +127,17 @@ def _trace_db_call(execute, sql, params, many, context):
     alias = context['connection'].alias
 
     span = tracer.start_span()
-    (sql_command, *_) = sql.split(maxsplit=1)
-    span.name = '{}.{}'.format(vendor, sql_command)
+    try:
+        (sql_command, subcommand, *_) = sql.split(maxsplit=2)
+        logger.info(f"subcommand: '{subcommand}'")
+        if "COUNT(*)" == subcommand:
+            span.name = '{}.COUNT'.format(vendor)
+        else:
+            span.name = '{}.{}'.format(vendor, sql_command)                
+    except Exception:
+        span.name = '{}.OTHER'.format(vendor)
+        logger.warning("Could not parse SQL statement for detailed tracing", exc_info=True)
+
     span.span_kind = span_module.SpanKind.CLIENT
 
     tracer.add_attribute_to_current_span('component', vendor)
@@ -141,7 +150,7 @@ def _trace_db_call(execute, sql, params, many, context):
         try:
             with connections[alias].cursor() as cursor:
                 # EXPLAIN ANALYZE only works under certain circumstances
-                if "analyze" is explain_mode and "postgresql" is vendor and "SELECT" is sql_command:
+                if "analyze" == explain_mode and "postgresql" == vendor and "SELECT" == sql_command:
                     cursor.execute("EXPLAIN ANALYZE {0}".format(sql), params)
                 else:
                     cursor.execute("EXPLAIN {0}".format(sql), params)

@@ -44,7 +44,6 @@ class MetricsExporter(TransportMixin, ProcessorMixin):
     def __init__(self, **options):
         self.options = Options(**options)
         logger.info("Azure MetricsExporter with options: {0}".format(self.options))
-        utils.validate_instrumentation_key(self.options.instrumentation_key)
         if self.options.max_batch_size <= 0:
             raise ValueError('Max batch size must be at least 1.')
         self.export_interval = self.options.export_interval
@@ -127,7 +126,7 @@ class MetricsExporter(TransportMixin, ProcessorMixin):
     def _create_envelope(self, data_point, timestamp, properties):
         envelope = Envelope(
             iKey=self.options.instrumentation_key,
-            tags=dict(utils.azure_monitor_context),
+            tags=dict(utils.AZURE_MONITOR_CONTEXT),
             time=timestamp.isoformat(),
         )
         envelope.name = "Microsoft.ApplicationInsights.Metric"

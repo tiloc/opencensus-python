@@ -6,6 +6,7 @@ import six
 import sys
 
 import logging
+import logging.config
 
 if __name__ == '__main__':
     try:
@@ -13,9 +14,9 @@ if __name__ == '__main__':
         from opencensus.trace import config_integration, span as span_module
         from opencensus.trace.tracer import Tracer
         from opencensus.trace.samplers import ProbabilitySampler
+        from opencensus.trace.print_exporter import PrintExporter
         from opencensus.ext.azure.log_exporter import AzureLogHandler
         from opencensus.ext.azure.trace_exporter import AzureExporter
-        import opencensus.ext.postgresql
     except ImportError as ierr:
         raise ImportError(
             "Couldn't import OpenCensus"
@@ -35,43 +36,45 @@ if __name__ == '__main__':
         ) from exc
 
     # Get OpenCensus settings from settings.py
-    settings = getattr(django.conf.settings, 'OPENCENSUS', {})
-    settings = settings.get('TRACE', {})
+    SETTINGS = getattr(django.conf.settings, 'OPENCENSUS', {})
+    SETTINGS = SETTINGS.get('TRACE', {})
 
-    sampler = (settings.get('SAMPLER', None)
-                    or samplers.ProbabilitySampler())
-    if isinstance(sampler, six.string_types):
-        sampler = configuration.load(sampler)
+    SAMPLER = (SETTINGS.get('SAMPLER', None) or ProbabilitySampler(rate=1.0))
+    if isinstance(SAMPLER, six.string_types):
+        SAMPLER = configuration.load(SAMPLER)
 
-    exporter = settings.get('EXPORTER', None) or \
-        print_exporter.PrintExporter()
-    if isinstance(exporter, six.string_types):
-        exporter = configuration.load(exporter)
+    EXPORTER = SETTINGS.get('EXPORTER', None) or PrintExporter()
+    if isinstance(EXPORTER, six.string_types):
+        EXPORTER = configuration.load(EXPORTER)
 
 
-    tracer = Tracer(
-        exporter=exporter,
-        sampler=sampler,
+    TRACER = Tracer(
+        exporter=EXPORTER,
+        sampler=SAMPLER,
     )
 
     # Add tracing for PostgreSQL
     config_integration.trace_integrations(['postgresql'])
 
-    # Add logging handler
+    # Configure logging from settings.py
+    logging.config.dictConfig(getattr(django.conf.settings, 'LOGGING', {}))
+
+    # Add logging integration
     config_integration.trace_integrations(['logging'])
     logger = logging.getLogger(__name__)
 
-    # TODO: Remove hard-coded Azure Log Handler
-#    handler = AzureLogHandler()
-#    handler.setFormatter(logging.Formatter('%(traceId)s %(spanId)s %(message)s'))
-# TODO: Activating the handler currently causes indefinite hang
-#    logger.addHandler(handler)
-#    logger.warning("Test")
+    if getattr(django.conf.settings, 'DEBUG'):
+        try:
+            from logging_tree import printout
+            printout()
+        except:
+            pass # optional logging_tree not in venv.
 
     # Run with tracing
-    with tracer.span(name='manage.py/{0}'.format(sys.argv[1])) as span:
-        # TODO: Figure out why AI is still not listing this as an operation
+    # TODO: Currently the manage.py command is showing as a dependency. Can I turn it into the node itself?
+    # TODO: tracemanage.py node is showing with 0 calls and 0ms
+    with TRACER.span(name='manage.py/{0}'.format(sys.argv[1])) as span:
         span.span_kind = span_module.SpanKind.CLIENT
-        tracer.add_attribute_to_current_span("http.method", "CLI")
-        tracer.add_attribute_to_current_span("http.route", 'manage.py/{0}'.format(sys.argv[1]))
+        TRACER.add_attribute_to_current_span("http.method", "CLI")
+        TRACER.add_attribute_to_current_span("http.route", 'manage.py/{0}'.format(sys.argv[1]))
         execute_from_command_line(sys.argv)
