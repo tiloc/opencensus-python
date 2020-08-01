@@ -21,8 +21,9 @@ from psycopg2.extensions import cursor as pgcursor
 
 from opencensus.trace import execution_context
 from opencensus.trace import span as span_module
+from opencensus.trace import status as status_module
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 MODULE_NAME = 'postgresql'
 
@@ -32,8 +33,8 @@ QUERY_WRAP_METHODS = ['execute', 'executemany']
 
 
 def trace_integration(tracer=None):
-    """Wrap the mysql connector to trace it."""
-    log.info('Integrated module: {}'.format(MODULE_NAME))
+    """Wrap the postgresql connector to trace it."""
+    logger.info('Integrated module: {}'.format(MODULE_NAME))
     conn_func = getattr(psycopg2, CONN_WRAP_METHOD)
     conn_module = inspect.getmodule(conn_func)
     setattr(conn_module, conn_func.__name__, connect)
@@ -49,14 +50,24 @@ def connect(*args, **kwargs):
 def trace_cursor_query(query_func):
     def call(query, *args, **kwargs):
         _tracer = execution_context.get_opencensus_tracer()
+        _span = None
         if _tracer is not None:
             # Note that although get_opencensus_tracer() returns a NoopTracer
             # if no thread local has been set, set_opencensus_tracer() does NOT
             # protect against setting None to the thread local - be defensive
             # here
             _span = _tracer.start_span()
-            (sql_command, *_) = query.split(maxsplit=1)
-            _span.name = '{}.{}'.format(MODULE_NAME, sql_command)
+            try:
+                (sql_command, subcommand, *_) = query.split(maxsplit=2)
+                if "COUNT(*)" == subcommand:
+                    _span.name = '{}.COUNT'.format(MODULE_NAME)
+                else:
+                    _span.name = '{}.{}'.format(MODULE_NAME, sql_command)
+            except:
+                _span.name = '{}.OTHER'.format(MODULE_NAME)
+                logger.warning("Could not parse SQL statement for detailed tracing", exc_info=True)
+                
+
             _span.span_kind = span_module.SpanKind.CLIENT
             _tracer.add_attribute_to_current_span("component", MODULE_NAME)
             _tracer.add_attribute_to_current_span("db.type", "sql")
@@ -66,7 +77,13 @@ def trace_cursor_query(query_func):
                 'db.cursor.method.name',
                 query_func.__name__)
 
-        result = query_func(query, *args, **kwargs)
+        try:
+            result = query_func(query, *args, **kwargs)
+        except Exception as exc:
+            if _span is not None:
+                status = status_module.Status.from_exception(exc)
+                _span.set_status(status)
+            raise
 
         if _tracer is not None:
             _tracer.end_span()

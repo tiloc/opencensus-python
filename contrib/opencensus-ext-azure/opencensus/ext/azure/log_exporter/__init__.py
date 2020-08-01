@@ -45,9 +45,8 @@ class BaseLogHandler(logging.Handler):
     def __init__(self, **options):
         super(BaseLogHandler, self).__init__()
         self.options = Options(**options)
-        # TODO: Remove secrets from log
-        logger.info("Setting up AzureLogHandler with options: {}".format(self.options))
-        utils.validate_instrumentation_key(self.options.instrumentation_key)
+        
+        logger.debug("Setting up AzureLogHandler")
         if not 0 <= self.options.logging_sampling_rate <= 1:
             raise ValueError('Sampling must be in the range: [0,1]')
         self.export_interval = self.options.export_interval
@@ -239,7 +238,7 @@ class AzureEventHandler(TransportMixin, ProcessorMixin, BaseLogHandler):
 def create_envelope(instrumentation_key, record):
     envelope = Envelope(
         iKey=instrumentation_key,
-        tags=dict(utils.azure_monitor_context),
+        tags=dict(utils.AZURE_MONITOR_CONTEXT),
         time=utils.timestamp_to_iso_str(record.created),
     )
     envelope.tags['ai.operation.id'] = getattr(

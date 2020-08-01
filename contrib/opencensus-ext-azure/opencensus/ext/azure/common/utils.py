@@ -16,14 +16,13 @@ import datetime
 import locale
 import os
 import platform
-import re
 import sys
 
 from opencensus.common.utils import timestamp_to_microseconds, to_iso_str
 from opencensus.common.version import __version__ as opencensus_version
 from opencensus.ext.azure.common.version import __version__ as ext_version
 
-azure_monitor_context = {
+AZURE_MONITOR_CONTEXT = {
     'ai.cloud.role': os.path.basename(sys.argv[0]) or 'Python Application',
     'ai.cloud.roleInstance': platform.node(),
     'ai.device.id': platform.node(),
@@ -56,27 +55,3 @@ def timestamp_to_duration(start_time, end_time):
 
 def timestamp_to_iso_str(timestamp):
     return to_iso_str(datetime.datetime.utcfromtimestamp(timestamp))
-
-
-# Validate UUID format
-# Specs taken from https://tools.ietf.org/html/rfc4122
-uuid_regex_pattern = re.compile('^[0-9a-f]{8}-'
-                                '[0-9a-f]{4}-'
-                                '[1-5][0-9a-f]{3}-'
-                                '[89ab][0-9a-f]{3}-'
-                                '[0-9a-f]{12}$')
-
-
-def validate_instrumentation_key(instrumentation_key):
-    """Validates the instrumentation key used for Azure Monitor.
-
-    An instrumentation key cannot be null or empty. An instrumentation key
-    is valid for Azure Monitor only if it is a valid UUID.
-
-    :param instrumentation_key: The instrumentation key to validate
-    """
-    if not instrumentation_key:
-        raise ValueError("Instrumentation key cannot be none or empty.")
-    match = uuid_regex_pattern.match(instrumentation_key)
-    if not match:
-        raise ValueError("Invalid instrumentation key.")
