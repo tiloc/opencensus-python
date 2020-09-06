@@ -42,9 +42,21 @@ def trace_integration(tracer=None):
 
 def connect(*args, **kwargs):
     """Create database connection, use TraceCursor as the cursor_factory."""
+    _tracer = execution_context.get_opencensus_tracer()
     kwargs['cursor_factory'] = TraceCursor
-    conn = pg_connect(*args, **kwargs)
-    return conn
+    if _tracer is not None:
+        with _tracer.span('PostgreSQL connect') as span:
+            try:
+                conn = pg_connect(*args, **kwargs)
+                return conn
+            except Exception as exc:
+                logger.error(f'Could not connect to PostgreSQL.', exc_info=True)
+                status = status_module.Status.from_exception(exc)
+                span.set_status(status)
+                raise
+    else:
+        conn = pg_connect(*args, **kwargs)
+        return conn
 
 
 def trace_cursor_query(query_func):

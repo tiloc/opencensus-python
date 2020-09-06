@@ -27,6 +27,7 @@ from django.utils.deprecation import MiddlewareMixin
 from google.rpc import code_pb2
 
 from opencensus.common import configuration
+from opencensus.common import utils as common_utils
 from opencensus.trace import (
     attributes_helper,
     execution_context,
@@ -144,6 +145,7 @@ def _trace_db_call(execute, sql, params, many, context):
     tracer.add_attribute_to_current_span('db.instance', alias)
     tracer.add_attribute_to_current_span('db.statement', sql)
     tracer.add_attribute_to_current_span('db.type', 'sql')
+    tracer.add_attribute_to_current_span('python.traceback', common_utils.get_traceback())
 
     # EXPLAIN is expensive and needs to be explicitly enabled
     if explain_mode is not None:

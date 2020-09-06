@@ -20,6 +20,7 @@ except ImportError:
 import calendar
 import datetime
 import weakref
+import traceback
 
 UTF8 = 'utf-8'
 
@@ -129,3 +130,25 @@ def get_weakref(func):
     if not hasattr(func, '__self__'):
         return weakref.ref(func)
     return WeakMethod(func)
+
+
+def get_traceback():
+    """Get a string containing the stacktrace of the current location in the code
+    """
+    stack = traceback.extract_stack()
+    stack_list = []
+    for path, lineno, func, line in stack:
+        if "opencensus" in path or "<stdin>" in path:
+            continue
+        # Shorten long file paths in venvs
+        sitepackages_idx = path.find("site-packages")
+        if (sitepackages_idx != -1):
+            stack_list.append(f"<venv>/{path[sitepackages_idx+14:]} in {func}({lineno}):")
+        else:
+            if "/lib/python" in path:
+                continue
+            stack_list.append(f"{path} in {func}({lineno}):")
+
+        stack_list.append(f"  {line}")
+
+    return "\n".join(stack_list)

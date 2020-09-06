@@ -19,6 +19,8 @@ from opencensus.trace import (
     execution_context,
 )
 
+from opencensus.common import utils as common_utils
+
 from opencensus.trace import status as status_module
 from opencensus.trace import span as span_module
 
@@ -48,6 +50,8 @@ class CacheTracer:
         span.set_status(status_module.Status(code_pb2.UNKNOWN))
 
         tracer.add_attribute_to_current_span('component', 'memcached')
+        tracer.add_attribute_to_current_span('python.traceback', common_utils.get_traceback())
+
         return self
 
     def __exit__(self, type, value, traceback):
