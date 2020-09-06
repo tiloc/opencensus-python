@@ -22,6 +22,7 @@ Licensed under the Apache 2.0 license (same as the original).
 * Tracing of Database calls including EXPLAIN plans
 * Tracing of memcached caching access
 * Tracking of User ID and Session ID for Azure Exporters
+* Add tracebacks to database access and memcached access
 
 Calls are properly modeled as dependencies and show on the Azure Monitor Application Maps and in the Performance section, as well as in the Usage section.
 
@@ -33,7 +34,7 @@ Calls are properly modeled as dependencies and show on the Azure Monitor Applica
 * Break down overall DB access into dedicated buckets for INSERT, SELECT, UPDATE, SELECT COUNT(*) operations
 
 ### Added to Azure Exporters
-* Export of User ID and Session ID for "Usage" section in Application Insights
+* Export of User ID and Session ID for "Usage" section in Azure Monitor
 
 ### Removed from Azure Exporters
 * Heartbeat functionality
@@ -50,8 +51,8 @@ pip install -e <repo-clone>/opencensus-python/contrib/opencensus-ext-logging
 ```
 
 ## Configuration
-### Azure Application Insights Instrumentation Key
-Set the environment variable `APPLICATION_INSIGHTS_CONNECTION_STRING` to your connection string. This will be picked up by all loggers, exporters, etc.
+### Azure Monitor Instrumentation Key
+Set the environment variable `APPLICATIONINSIGHTS_CONNECTION_STRING` to your connection string. This will be picked up by all loggers, exporters, etc.
 
 ### Django Middleware
 In `settings.py` add this (towards the end):
@@ -73,7 +74,7 @@ OPENCENSUS = {
     }
 }
 ```
-`EXPLAIN` can be either `simple` or `analyze`. The latter will compare the plan to reality. This operation only works on PostgreSQL and is expensive.
+`EXPLAIN` can be either `simple` or `analyze`. The latter will compare the plan to reality. *This operation only works on PostgreSQL and is expensive.*
 
 ### Memcached
 ```python
