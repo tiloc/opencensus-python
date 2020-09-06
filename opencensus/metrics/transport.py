@@ -62,6 +62,8 @@ class PeriodicMetricTask(PeriodicTask):
             interval = DEFAULT_INTERVAL
 
         self.func = function
+        self.args = args
+        self.kwargs = kwargs
 
         def func(*aa, **kw):
             try:
@@ -69,8 +71,8 @@ class PeriodicMetricTask(PeriodicTask):
             except TransportError as ex:
                 logger.exception(ex)
                 self.cancel()
-            except Exception:
-                logger.exception("Error handling metric export")
+            except Exception as ex:
+                logger.exception("Error handling metric export: {}".format(ex))
 
         super(PeriodicMetricTask, self).__init__(
             interval, func, args, kwargs, '{} Worker'.format(name)
@@ -81,6 +83,13 @@ class PeriodicMetricTask(PeriodicTask):
         # Used to suppress tracking of requests in this thread
         execution_context.set_is_exporter(True)
         super(PeriodicMetricTask, self).run()
+
+    def close(self):
+        try:
+            return self.func(*self.args, **self.kwargs)
+        except Exception as ex:
+            logger.exception("Error handling metric flush: {}".format(ex))
+        self.cancel()
 
 
 def get_exporter_thread(metric_producers, exporter, interval=None):

@@ -14,6 +14,7 @@
 
 # Prominent notice according to section 4b of the license: Tilo Christ modified this file.
 
+import json
 import logging
 
 from opencensus.common.schedule import QueueExitEvent
@@ -148,7 +149,13 @@ class AzureExporter(BaseExporter, ProcessorMixin, TransportMixin):
             else:
                 data.type = 'INPROC'
                 data.success = True
-        # TODO: links, tracestate, tags
+        if sd.links:
+            links = []
+            for link in sd.links:
+                links.append(
+                    {"operation_Id": link.trace_id, "id": link.span_id})
+            data.properties["_MS.links"] = json.dumps(links)
+        # TODO: tracestate, tags
         for key in sd.attributes:
             # This removes redundant data from ApplicationInsights
             if key.startswith('http.'):

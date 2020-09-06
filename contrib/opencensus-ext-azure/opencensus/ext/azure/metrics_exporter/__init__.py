@@ -57,6 +57,7 @@ class MetricsExporter(TransportMixin, ProcessorMixin):
             source=self.__class__.__name__,
         )
         self._atexit_handler = atexit.register(self.shutdown)
+        self.exporter_thread = None
         super(MetricsExporter, self).__init__()
 
     def export_metrics(self, metrics):
@@ -138,11 +139,11 @@ class MetricsExporter(TransportMixin, ProcessorMixin):
         return envelope
 
     def shutdown(self):
-        # flush metrics on exit
-        self.export_metrics(stats_module.stats.get_metrics())
-        if self._atexit_handler is not None:
-            atexit.unregister(self._atexit_handler)
-            self._atexit_handler = None
+        # Flush the exporter thread
+        if self.exporter_thread:
+            self.exporter_thread.close()
+        # Shutsdown storage worker
+        self.storage.close()
 
 
 def new_metrics_exporter(**options):
